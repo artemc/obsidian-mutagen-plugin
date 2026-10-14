@@ -55,12 +55,12 @@ async function main() {
 	check("dot state without config", p.statusItems[0].dataset.state, "noconfig");
 
 	let menu = await clickMenu(p);
-	check("menu without config", titles(menu), "No mutagen config - click to create | Plugin settings… | Create mutagen.yml");
+	check("menu without config", titles(menu), "No mutagen config - click to create | Create mutagen.yml | Plugin settings…");
 	await menu.items.find((i) => i.title === "Create mutagen.yml")!.click!();
 	check("after Create", p.state, "stopped");
 
 	menu = await clickMenu(p);
-	check("menu when stopped", titles(menu), "Project not started | Details… | Plugin settings… | Start");
+	check("menu when stopped", titles(menu), "Project not started | Details… | Start | Plugin settings…");
 	const start = menu.items.find((i) => i.title === "Start")!;
 	await start.click!();
 	check("after Start", await waitState(p, "running"), "running");
@@ -72,12 +72,12 @@ async function main() {
 	check("still paused after more monitor updates", p.state, "paused");
 
 	menu = await clickMenu(p);
-	check("menu when paused", titles(menu), "Sync paused | vault: paused | Details… | Plugin settings… | Resume");
+	check("menu when paused", titles(menu), "Sync paused | vault: paused | Details… | Resume | Plugin settings…");
 	const resume = menu.items.find((i) => i.title === "Resume")!;
 	await resume.click!();
 	check("after Resume", await waitState(p, "running"), "running");
 	menu = await clickMenu(p);
-	check("menu when running", titles(menu), "Sync running | vault: watching | Details… | Plugin settings… | Pause");
+	check("menu when running", titles(menu), "Sync running | vault: watching | Details… | Pause | Plugin settings…");
 
 	// Closing the vault while syncing.
 	const closeEvent = () => {

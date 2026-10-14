@@ -195,10 +195,8 @@ export default class MutagenSyncPlugin extends Plugin {
 			}
 		}
 		menu.addItem((item) => item.setTitle("Details…").setIcon("info").onClick(() => this.showProjectList()));
-		menu.addSeparator();
-		menu.addItem((item) => item.setTitle("Plugin settings…").setIcon("settings").onClick(() => this.openSettings()));
 
-		// One action closest to the click: whatever makes sense in the current state.
+		// One action that makes sense in the current state.
 		const action = PRIMARY_ACTION[this.state];
 		if (action) {
 			menu.addSeparator();
@@ -206,6 +204,8 @@ export default class MutagenSyncPlugin extends Plugin {
 				item.setTitle(action.title).setIcon(action.icon).onClick(() => this.runProject(action.command))
 			);
 		}
+		menu.addSeparator();
+		menu.addItem((item) => item.setTitle("Plugin settings…").setIcon("settings").onClick(() => this.openSettings()));
 
 		menu.showAtMouseEvent(evt);
 	}
@@ -221,11 +221,11 @@ export default class MutagenSyncPlugin extends Plugin {
 		const menu = new Menu();
 		menu.addItem((item) => item.setTitle(STATE_LABEL[this.state]).setDisabled(true));
 		menu.addSeparator();
-		menu.addItem((item) => item.setTitle("Plugin settings…").setIcon("settings").onClick(() => this.openSettings()));
-		menu.addSeparator();
 		menu.addItem((item) =>
 			item.setTitle(`Create ${this.settings.configFile}`).setIcon("file-plus").onClick(() => this.createConfig())
 		);
+		menu.addSeparator();
+		menu.addItem((item) => item.setTitle("Plugin settings…").setIcon("settings").onClick(() => this.openSettings()));
 		menu.showAtMouseEvent(evt);
 	}
 
