@@ -33,6 +33,8 @@ async function waitState(p: any, expected: string, ms = 10_000) {
 	return p.state;
 }
 
+const titles = (m: Menu) => m.items.map((i) => i.title).join(" | ");
+
 async function clickMenu(p: any): Promise<Menu> {
 	await p.domHandlers[0]({});
 	return Menu.last!;
@@ -53,13 +55,13 @@ async function main() {
 	check("dot state without config", p.statusItems[0].dataset.state, "noconfig");
 
 	let menu = await clickMenu(p);
-	check("menu without config", menu.items.map((i) => i.title).join(" | "), "Create mutagen.yml | Settings");
-	await menu.items[0].click!();
+	check("menu without config", titles(menu), "No mutagen config - click to create | Plugin settings… | Create mutagen.yml");
+	await menu.items.find((i) => i.title === "Create mutagen.yml")!.click!();
 	check("after Create", p.state, "stopped");
 
 	menu = await clickMenu(p);
+	check("menu when stopped", titles(menu), "Project not started | Details… | Plugin settings… | Start");
 	const start = menu.items.find((i) => i.title === "Start")!;
-	check("Start enabled", start.disabled, false);
 	await start.click!();
 	check("after Start", await waitState(p, "running"), "running");
 	check("monitor running", p.monitor !== null, true);
@@ -70,12 +72,12 @@ async function main() {
 	check("still paused after more monitor updates", p.state, "paused");
 
 	menu = await clickMenu(p);
-	check("Start disabled while paused", menu.items.find((i) => i.title === "Start")!.disabled, true);
+	check("menu when paused", titles(menu), "Sync paused | vault: paused | Details… | Plugin settings… | Resume");
 	const resume = menu.items.find((i) => i.title === "Resume")!;
-	check("Resume enabled", resume.disabled, false);
 	await resume.click!();
 	check("after Resume", await waitState(p, "running"), "running");
-	console.log("menu:", menu.items.map((i) => i.title).join(" | "));
+	menu = await clickMenu(p);
+	check("menu when running", titles(menu), "Sync running | vault: watching | Details… | Plugin settings… | Pause");
 
 	// Closing the vault while syncing.
 	const closeEvent = () => {

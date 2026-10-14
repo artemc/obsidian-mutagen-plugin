@@ -7,6 +7,13 @@ import { MutagenCli, SyncSession } from "./mutagen";
 import { DEFAULT_SETTINGS, normalizeYamlIndent, MutagenSettings, MutagenSettingTab } from "./settings";
 import { ProjectState, STATE_LABEL, sessionSummary, stateFromSessions } from "./state";
 
+const PRIMARY_ACTION: Partial<Record<ProjectState, { title: string; icon: string; command: "start" | "pause" | "resume" }>> = {
+	stopped: { title: "Start", icon: "play", command: "start" },
+	paused: { title: "Resume", icon: "play", command: "resume" },
+	running: { title: "Pause", icon: "pause", command: "pause" },
+	error: { title: "Pause", icon: "pause", command: "pause" },
+};
+
 const MONITOR_BACKOFF_MIN_MS = 5_000;
 const MONITOR_BACKOFF_MAX_MS = 300_000;
 
@@ -189,23 +196,16 @@ export default class MutagenSyncPlugin extends Plugin {
 		}
 		menu.addItem((item) => item.setTitle("Details…").setIcon("info").onClick(() => this.showProjectList()));
 		menu.addSeparator();
+		menu.addItem((item) => item.setTitle("Plugin settings…").setIcon("settings").onClick(() => this.openSettings()));
 
-		const started = this.state === "running" || this.state === "paused" || this.state === "error";
-		menu.addItem((item) =>
-			item.setTitle("Start").setIcon("play").setDisabled(started).onClick(() => this.runProject("start"))
-		);
-		menu.addItem((item) =>
-			item
-				.setTitle("Pause")
-				.setIcon("pause")
-				.setDisabled(this.state !== "running" && this.state !== "error")
-				.onClick(() => this.runProject("pause"))
-		);
-		menu.addItem((item) =>
-			item.setTitle("Resume").setIcon("refresh-cw").setDisabled(this.state !== "paused").onClick(() => this.runProject("resume"))
-		);
-		menu.addSeparator();
-		menu.addItem((item) => item.setTitle("Settings").setIcon("settings").onClick(() => this.openSettings()));
+		// One action closest to the click: whatever makes sense in the current state.
+		const action = PRIMARY_ACTION[this.state];
+		if (action) {
+			menu.addSeparator();
+			menu.addItem((item) =>
+				item.setTitle(action.title).setIcon(action.icon).onClick(() => this.runProject(action.command))
+			);
+		}
 
 		menu.showAtMouseEvent(evt);
 	}
@@ -219,11 +219,13 @@ export default class MutagenSyncPlugin extends Plugin {
 
 	private openNoConfigMenu(evt: MouseEvent) {
 		const menu = new Menu();
+		menu.addItem((item) => item.setTitle(STATE_LABEL[this.state]).setDisabled(true));
+		menu.addSeparator();
+		menu.addItem((item) => item.setTitle("Plugin settings…").setIcon("settings").onClick(() => this.openSettings()));
+		menu.addSeparator();
 		menu.addItem((item) =>
 			item.setTitle(`Create ${this.settings.configFile}`).setIcon("file-plus").onClick(() => this.createConfig())
 		);
-		menu.addSeparator();
-		menu.addItem((item) => item.setTitle("Settings").setIcon("settings").onClick(() => this.openSettings()));
 		menu.showAtMouseEvent(evt);
 	}
 
