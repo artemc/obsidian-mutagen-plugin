@@ -68,6 +68,7 @@ export class Notice { constructor(public message: string) {} hide() {} }
 export class Modal {
 	static last: Modal | null = null;
 	titleEl = new FakeEl();
+	modalEl = new FakeEl();
 	contentEl = new FakeEl();
 	constructor(public app: any) {}
 	open() { Modal.last = this; (this as any).onOpen?.(); }

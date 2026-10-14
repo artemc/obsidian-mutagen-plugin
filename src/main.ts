@@ -288,6 +288,7 @@ class ProjectListModal extends Modal {
 
 	onOpen() {
 		this.titleEl.setText("mutagen project list");
+		this.modalEl.addClass("mutagen-project-list-modal");
 		this.contentEl.createEl("pre", { cls: "mutagen-project-list", text: this.text });
 	}
 
