@@ -19,7 +19,7 @@ export const DEFAULT_SETTINGS: MutagenSettings = {
 	mutagenPath: "mutagen",
 	configFile: "mutagen.yml",
 	useMonitor: true,
-	debugLog: true,
+	debugLog: false,
 	onClose: "ask",
 	configTemplate: [
 		"sync:",

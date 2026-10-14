@@ -2,6 +2,8 @@
 
 See and control [Mutagen](https://mutagen.io) sync of your vault without a terminal: a status bar dot shows whether the vault's Mutagen project (`mutagen.yml` in the vault root) is syncing, and a click starts, pauses or resumes it.
 
+![Status bar dot](docs/screenshot-1.png) ![Click menu](docs/screenshot-2.png)
+
 Requires Obsidian desktop and the `mutagen` CLI (path configurable in settings).
 
 - grey - no `mutagen.yml`, no `mutagen` binary, or project not started
@@ -12,6 +14,8 @@ Requires Obsidian desktop and the `mutagen` CLI (path configurable in settings).
 Click the dot: `mutagen project list` output, Start / Pause / Resume, Settings. Without a config the menu offers to create `mutagen.yml` from a template set in settings. Right-click the dot to pause or resume instantly. Status is pushed by a single `mutagen sync monitor` process, no polling.
 
 When you close the vault while it is syncing, the plugin can ask whether to pause the project, pause it silently, or do nothing (setting *When closing the vault while syncing*).
+
+For troubleshooting, enable *Debug log* in settings (off by default): mutagen calls and state changes go to `debug.log` in the plugin folder and the developer console.
 
 ## Install via BRAT
 
