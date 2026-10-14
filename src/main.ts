@@ -50,6 +50,7 @@ export default class MutagenSyncPlugin extends Plugin {
 		this.statusEl.addClass("mutagen-status");
 		this.statusEl.createDiv({ cls: "mutagen-status-dot" });
 		this.registerDomEvent(this.statusEl, "click", (evt) => this.openMenu(evt));
+		this.registerDomEvent(this.statusEl, "contextmenu", (evt) => this.quickToggle(evt));
 
 		const onFileEvent = (file: TAbstractFile, oldPath?: string) => {
 			if (this.isProjectPath(file.path) || (oldPath && this.isProjectPath(oldPath))) {
@@ -208,6 +209,14 @@ export default class MutagenSyncPlugin extends Plugin {
 		menu.addItem((item) => item.setTitle("Plugin settings…").setIcon("settings").onClick(() => this.openSettings()));
 
 		menu.showAtMouseEvent(evt);
+	}
+
+	// Right click: pause or resume right away. Start and Create stay in the menu on purpose.
+	private quickToggle(evt: MouseEvent) {
+		evt.preventDefault();
+		const command = this.state === "paused" ? "resume" : this.state === "running" || this.state === "error" ? "pause" : null;
+		this.logger.log("right click: state", this.state, "->", command ?? "nothing");
+		if (command) this.runProject(command);
 	}
 
 	// Full `mutagen project list` output goes to a modal; it does not fit in a menu.

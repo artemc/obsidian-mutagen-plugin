@@ -34,12 +34,12 @@ class FakeEl {
 export class Plugin {
 	manifest = { id: "mutagen-sync", dir: ".obsidian/plugins/mutagen-sync", version: "test" };
 	statusItems: FakeEl[] = [];
-	domHandlers: Handler[] = [];
+	domHandlers: Record<string, Handler> = {};
 	private data: unknown = null;
 	constructor(public app: any) {}
 	addStatusBarItem() { const el = new FakeEl(); this.statusItems.push(el); return el as any; }
 	addSettingTab() {}
-	registerDomEvent(_el: unknown, _type: string, h: Handler) { this.domHandlers.push(h); }
+	registerDomEvent(_el: unknown, type: string, h: Handler) { this.domHandlers[type] = h; }
 	registerEvent() {}
 	async loadData() { return this.data; }
 	async saveData(d: unknown) { this.data = d; }

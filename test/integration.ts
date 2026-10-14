@@ -36,7 +36,7 @@ async function waitState(p: any, expected: string, ms = 10_000) {
 const titles = (m: Menu) => m.items.map((i) => i.title).join(" | ");
 
 async function clickMenu(p: any): Promise<Menu> {
-	await p.domHandlers[0]({});
+	await p.domHandlers.click({});
 	return Menu.last!;
 }
 
@@ -58,6 +58,9 @@ async function main() {
 	check("menu without config", titles(menu), "No mutagen config - click to create | Create mutagen.yml | Plugin settings…");
 	await menu.items.find((i) => i.title === "Create mutagen.yml")!.click!();
 	check("after Create", p.state, "stopped");
+	p.domHandlers.contextmenu({ preventDefault() {} });
+	await sleep(1000);
+	check("right click when stopped: nothing", p.state, "stopped");
 
 	menu = await clickMenu(p);
 	check("menu when stopped", titles(menu), "Project not started | Details… | Start | Plugin settings…");
@@ -79,10 +82,17 @@ async function main() {
 	menu = await clickMenu(p);
 	check("menu when running", titles(menu), "Sync running | vault: watching | Details… | Pause | Plugin settings…");
 
+	// Right click toggles pause / resume only.
+	const rightClick = () => p.domHandlers.contextmenu({ preventDefault() {} });
+	rightClick();
+	check("right click when running: paused", await waitState(p, "paused"), "paused");
+	rightClick();
+	check("right click when paused: resumed", await waitState(p, "running"), "running");
+
 	// Closing the vault while syncing.
 	const closeEvent = () => {
 		const evt: any = { prevented: false, preventDefault() { this.prevented = true; } };
-		p.domHandlers[1](evt);
+		p.domHandlers.beforeunload(evt);
 		return evt;
 	};
 
