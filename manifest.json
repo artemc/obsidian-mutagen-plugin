@@ -1,7 +1,7 @@
 {
 	"id": "mutagen-sync",
 	"name": "Mutagen Sync",
-	"version": "0.1.8",
+	"version": "0.1.9",
 	"minAppVersion": "1.4.0",
 	"description": "Status bar indicator and controls for a Mutagen project (mutagen.yml) in the vault root.",
 	"author": "artemc",
