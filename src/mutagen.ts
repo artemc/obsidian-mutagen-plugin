@@ -1,5 +1,5 @@
 // Wrapper around the mutagen CLI: one-off commands and a long-lived `sync monitor`.
-import { ChildProcess, execFile, spawn } from "child_process";
+import { ChildProcess, execFile, execFileSync, spawn } from "child_process";
 import { homedir } from "os";
 import { delimiter, join } from "path";
 import type { Logger } from "./logger";
@@ -57,6 +57,18 @@ export class MutagenCli {
 				}
 			);
 		});
+	}
+
+	// Blocking call for use while the window is closing, when async work may never finish.
+	runSync(args: string[], timeoutMs = 10_000): boolean {
+		try {
+			execFileSync(this.binary(), args, { cwd: this.cwd, env: cliEnv(), timeout: timeoutMs, stdio: "ignore" });
+			this.logger.log("execSync", args, "-> ok");
+			return true;
+		} catch (e) {
+			this.logger.log("execSync", args, "-> error:", (e as Error).message);
+			return false;
+		}
 	}
 
 	projectCommand(command: "list" | "start" | "pause" | "resume", configFile: string): Promise<CliResult> {

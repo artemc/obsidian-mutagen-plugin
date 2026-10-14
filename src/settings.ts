@@ -8,7 +8,10 @@ export interface MutagenSettings {
 	useMonitor: boolean;
 	configTemplate: string;
 	debugLog: boolean;
+	onClose: CloseAction;
 }
+
+export type CloseAction = "ask" | "pause" | "nothing";
 
 const INDENT = "  ";
 
@@ -17,6 +20,7 @@ export const DEFAULT_SETTINGS: MutagenSettings = {
 	configFile: "mutagen.yml",
 	useMonitor: true,
 	debugLog: true,
+	onClose: "ask",
 	configTemplate: [
 		"sync:",
 		"  defaults:",
@@ -119,6 +123,19 @@ export class MutagenSettingTab extends PluginSettingTab {
 					this.plugin.settings.useMonitor = v;
 					await this.plugin.saveSettings();
 				})
+			);
+
+		new Setting(containerEl)
+			.setName("When closing the vault while syncing")
+			.setDesc("Ask whether to pause the Mutagen project, pause it without asking, or leave it running.")
+			.addDropdown((d) =>
+				d
+					.addOptions({ ask: "Ask", pause: "Pause without asking", nothing: "Keep syncing" })
+					.setValue(this.plugin.settings.onClose)
+					.onChange(async (v) => {
+						this.plugin.settings.onClose = v as CloseAction;
+						await this.plugin.saveData(this.plugin.settings);
+					})
 			);
 
 		new Setting(containerEl)

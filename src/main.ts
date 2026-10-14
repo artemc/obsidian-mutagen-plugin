@@ -25,6 +25,7 @@ export default class MutagenSyncPlugin extends Plugin {
 	private monitorRetry: number | null = null;
 
 	private refreshChain: Promise<void> = Promise.resolve();
+	private allowClose = false;
 
 	async onload() {
 		await this.loadSettings();
@@ -53,6 +54,8 @@ export default class MutagenSyncPlugin extends Plugin {
 		this.registerEvent(this.app.vault.on("delete", (f) => onFileEvent(f)));
 		this.registerEvent(this.app.vault.on("modify", (f) => onFileEvent(f)));
 		this.registerEvent(this.app.vault.on("rename", (f, old) => onFileEvent(f, old)));
+
+		this.registerDomEvent(window, "beforeunload", (evt) => this.onBeforeUnload(evt));
 
 		this.app.workspace.onLayoutReady(() => {
 			this.placeNextToSyncIcon();
@@ -247,6 +250,28 @@ export default class MutagenSyncPlugin extends Plugin {
 		await this.refresh();
 	}
 
+	// Closing the vault window while the project is syncing: ask, pause silently, or do nothing.
+	private onBeforeUnload(evt: BeforeUnloadEvent) {
+		if (this.allowClose || (this.state !== "running" && this.state !== "error")) return;
+		const action = this.settings.onClose;
+		this.logger.log("close: state", this.state, "action", action);
+		if (action === "nothing") return;
+		if (action === "pause") {
+			this.cli.runSync(["project", "pause", "-f", this.settings.configFile]);
+			return;
+		}
+		// Cancel this close, ask, then close the window ourselves.
+		evt.preventDefault();
+		evt.returnValue = false;
+		new ClosePromptModal(this.app, async (choice) => {
+			this.logger.log("close: choice", choice);
+			if (choice === "cancel") return;
+			if (choice === "pause") await this.runProject("pause");
+			this.allowClose = true;
+			window.close();
+		}).open();
+	}
+
 	private openSettings() {
 		const setting = (this.app as unknown as { setting: { open(): void; openTabById(id: string): void } }).setting;
 		setting.open();
@@ -266,5 +291,36 @@ class ProjectListModal extends Modal {
 
 	onClose() {
 		this.contentEl.empty();
+	}
+}
+
+type CloseChoice = "pause" | "close" | "cancel";
+
+class ClosePromptModal extends Modal {
+	private choice: CloseChoice = "cancel";
+
+	constructor(app: App, private onChoice: (choice: CloseChoice) => void) {
+		super(app);
+	}
+
+	onOpen() {
+		this.titleEl.setText("Mutagen is still syncing");
+		this.contentEl.createEl("p", { text: "Pause the Mutagen project before closing this vault?" });
+		const buttons = this.contentEl.createDiv({ cls: "modal-button-container" });
+		const add = (text: string, choice: CloseChoice, cta = false) => {
+			const btn = buttons.createEl("button", { text, cls: cta ? "mod-cta" : "" });
+			btn.addEventListener("click", () => {
+				this.choice = choice;
+				this.close();
+			});
+		};
+		add("Pause and close", "pause", true);
+		add("Close without pausing", "close");
+		add("Cancel", "cancel");
+	}
+
+	onClose() {
+		this.contentEl.empty();
+		this.onChoice(this.choice);
 	}
 }

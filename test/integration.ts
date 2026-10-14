@@ -4,8 +4,12 @@ import { execFileSync } from "child_process";
 import { mkdirSync, mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { FileSystemAdapter, Menu } from "obsidian";
+import { FileSystemAdapter, Menu, Modal } from "obsidian";
 import MutagenSyncPlugin from "../src/main";
+
+// Fake browser window: the plugin listens for beforeunload and closes the window itself.
+let windowClosed = false;
+(globalThis as any).window = { setTimeout, clearTimeout, close: () => { windowClosed = true; } };
 
 const root = mkdtempSync(join(tmpdir(), "mutagen-sync-test-"));
 const vault = join(root, "vault");
@@ -72,6 +76,43 @@ async function main() {
 	await resume.click!();
 	check("after Resume", await waitState(p, "running"), "running");
 	console.log("menu:", menu.items.map((i) => i.title).join(" | "));
+
+	// Closing the vault while syncing.
+	const closeEvent = () => {
+		const evt: any = { prevented: false, preventDefault() { this.prevented = true; } };
+		p.domHandlers[1](evt);
+		return evt;
+	};
+
+	p.settings.onClose = "nothing";
+	check("close, keep syncing: not blocked", closeEvent().prevented, false);
+	check("close, keep syncing: state", p.state, "running");
+
+	p.settings.onClose = "ask";
+	Modal.last = null;
+	let evt = closeEvent();
+	check("close, ask: close blocked", evt.prevented, true);
+	check("close, ask: prompt shown", Modal.last !== null, true);
+	(Modal.last as any).choice = "cancel";
+	Modal.last!.close();
+	await sleep(200);
+	check("close, ask, cancel: window stays", windowClosed, false);
+
+	Modal.last = null;
+	closeEvent();
+	(Modal.last as any).choice = "pause";
+	Modal.last!.close();
+	check("close, ask, pause: paused", await waitState(p, "paused"), "paused");
+	await sleep(200);
+	check("close, ask, pause: window closed", windowClosed, true);
+
+	mutagen("project", "resume");
+	p.allowClose = false;
+	check("resumed for next case", await waitState(p, "running"), "running");
+	p.settings.onClose = "pause";
+	evt = closeEvent();
+	check("close, pause silently: not blocked", evt.prevented, false);
+	check("close, pause silently: paused", await waitState(p, "paused"), "paused");
 
 	p.onunload();
 	check("monitor stopped", p.monitor, null);

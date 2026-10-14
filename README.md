@@ -11,6 +11,8 @@ Requires Obsidian desktop and the `mutagen` CLI (path configurable in settings).
 
 Click the dot: `mutagen project list` output, Start / Pause / Resume, Settings. Without a config the menu offers to create `mutagen.yml` from a template set in settings. Status is pushed by a single `mutagen sync monitor` process, no polling.
 
+When you close the vault while it is syncing, the plugin can ask whether to pause the project, pause it silently, or do nothing (setting *When closing the vault while syncing*).
+
 ## Install via BRAT
 
 1. Install the **BRAT** community plugin.

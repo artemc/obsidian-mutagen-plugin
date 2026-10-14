@@ -21,6 +21,7 @@ class FakeEl {
 	doc = {};
 	addClass() {}
 	createDiv() { return new FakeEl(); }
+	addEventListener() {}
 	createEl() { return new FakeEl(); }
 	setAttr(k: string, v: string) { this.attrs[k] = v; }
 	hide() { this.hidden = true; }
@@ -64,7 +65,14 @@ export class Menu {
 }
 
 export class Notice { constructor(public message: string) {} hide() {} }
-export class Modal { titleEl = new FakeEl(); contentEl = new FakeEl(); constructor(public app: any) {} open() {} }
+export class Modal {
+	static last: Modal | null = null;
+	titleEl = new FakeEl();
+	contentEl = new FakeEl();
+	constructor(public app: any) {}
+	open() { Modal.last = this; (this as any).onOpen?.(); }
+	close() { (this as any).onClose?.(); }
+}
 export class PluginSettingTab { containerEl = new FakeEl(); constructor(public app: any, public plugin: any) {} }
 export class Setting {}
 export class TAbstractFile { path = ""; }

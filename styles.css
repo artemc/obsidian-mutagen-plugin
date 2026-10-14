@@ -11,7 +11,7 @@
 	background-color: var(--text-faint);
 }
 
-.mutagen-status[data-state="running"] .mutagen-status-dot { background-color: var(--color-green); }
+.mutagen-status[data-state="running"] .mutagen-status-dot { background-color: #34c759; }
 .mutagen-status[data-state="paused"] .mutagen-status-dot { background-color: var(--color-yellow); }
 .mutagen-status[data-state="error"] .mutagen-status-dot { background-color: var(--color-red); }
 .mutagen-status[data-state="stopped"] .mutagen-status-dot,
