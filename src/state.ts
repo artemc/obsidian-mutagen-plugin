@@ -1,7 +1,7 @@
 // Project state for the status bar dot and menu.
 import type { SyncSession } from "./mutagen";
 
-export type ProjectState = "running" | "paused" | "stopped" | "error" | "unavailable" | "noconfig";
+export type ProjectState = "running" | "paused" | "stopped" | "error" | "unavailable" | "nodaemon" | "noconfig";
 
 export const STATE_LABEL: Record<ProjectState, string> = {
 	running: "Sync running",
@@ -9,6 +9,7 @@ export const STATE_LABEL: Record<ProjectState, string> = {
 	stopped: "Project not started",
 	error: "Sync error",
 	unavailable: "mutagen not available",
+	nodaemon: "Mutagen daemon not running",
 	noconfig: "No mutagen config - click to create",
 };
 

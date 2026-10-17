@@ -9,6 +9,7 @@ export interface MutagenSettings {
 	configTemplate: string;
 	debugLog: boolean;
 	onClose: CloseAction;
+	terminalCommand: string;
 }
 
 export type CloseAction = "ask" | "pause" | "nothing";
@@ -21,6 +22,7 @@ export const DEFAULT_SETTINGS: MutagenSettings = {
 	useMonitor: true,
 	debugLog: false,
 	onClose: "ask",
+	terminalCommand: "",
 	configTemplate: [
 		"sync:",
 		"  defaults:",
@@ -136,6 +138,16 @@ export class MutagenSettingTab extends PluginSettingTab {
 						this.plugin.settings.onClose = v as CloseAction;
 						await this.plugin.saveData(this.plugin.settings);
 					})
+			);
+
+		new Setting(containerEl)
+			.setName("Terminal command")
+			.setDesc("Used by \"Start in terminal\", where SSH can ask for a password. Empty: Terminal on macOS, x-terminal-emulator on Linux, cmd on Windows. {command} is replaced with the quoted shell command, e.g. `gnome-terminal -- sh -c {command}` or `kitty sh -c {command}`.")
+			.addText((t) =>
+				t.setPlaceholder("default").setValue(this.plugin.settings.terminalCommand).onChange(async (v) => {
+					this.plugin.settings.terminalCommand = v;
+					await this.plugin.saveData(this.plugin.settings);
+				})
 			);
 
 		new Setting(containerEl)

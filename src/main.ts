@@ -3,7 +3,7 @@ import { App, FileSystemAdapter, Menu, Modal, Notice, Plugin, TAbstractFile } fr
 import type { ChildProcess } from "child_process";
 import { join } from "path";
 import { Logger } from "./logger";
-import { MutagenCli, SyncSession } from "./mutagen";
+import { MutagenCli, SyncSession, daemonDown, needsPrompt, runInTerminal } from "./mutagen";
 import { DEFAULT_SETTINGS, normalizeYamlIndent, MutagenSettings, MutagenSettingTab } from "./settings";
 import { ProjectState, STATE_LABEL, sessionSummary, stateFromSessions } from "./state";
 
@@ -16,6 +16,7 @@ const PRIMARY_ACTION: Partial<Record<ProjectState, { title: string; icon: string
 
 const MONITOR_BACKOFF_MIN_MS = 5_000;
 const MONITOR_BACKOFF_MAX_MS = 300_000;
+const NODAEMON_RETRY_MS = 10_000;
 
 export default class MutagenSyncPlugin extends Plugin {
 	settings: MutagenSettings = DEFAULT_SETTINGS;
@@ -130,11 +131,24 @@ export default class MutagenSyncPlugin extends Plugin {
 		this.projectId = id;
 
 		const sessions = await this.cli.sessions(id);
-		this.sessions = sessions ?? [];
-		this.logger.log("refresh: sessions", sessions ? sessions.length : "null (cli failed)");
-		this.setState(sessions ? stateFromSessions(sessions) : "unavailable");
+		this.logger.log("refresh: sessions", Array.isArray(sessions) ? sessions.length : sessions ?? "null (cli failed)");
+		if (!Array.isArray(sessions)) {
+			this.sessions = [];
+			this.stopMonitor();
+			this.setState(sessions ?? "unavailable");
+			// Notice a daemon started elsewhere (terminal, login service) without a menu click.
+			if (sessions === "nodaemon") {
+				this.monitorRetry = window.setTimeout(() => {
+					this.monitorRetry = null;
+					this.refresh();
+				}, NODAEMON_RETRY_MS);
+			}
+			return;
+		}
+		this.sessions = sessions;
+		this.setState(stateFromSessions(sessions));
 
-		if (this.settings.useMonitor && sessions && this.monitorId !== id) this.startMonitor(id);
+		if (this.settings.useMonitor && this.monitorId !== id) this.startMonitor(id);
 	}
 
 	private setState(state: ProjectState) {
@@ -190,7 +204,7 @@ export default class MutagenSyncPlugin extends Plugin {
 
 		const menu = new Menu();
 		menu.addItem((item) => item.setTitle(STATE_LABEL[this.state]).setDisabled(true));
-		if (this.state !== "stopped" && this.state !== "unavailable") {
+		if (this.state !== "stopped" && this.state !== "unavailable" && this.state !== "nodaemon") {
 			for (const session of this.sessions) {
 				menu.addItem((item) => item.setTitle(sessionSummary(session)).setDisabled(true));
 			}
@@ -203,6 +217,17 @@ export default class MutagenSyncPlugin extends Plugin {
 			menu.addSeparator();
 			menu.addItem((item) =>
 				item.setTitle(action.title).setIcon(action.icon).onClick(() => this.runProject(action.command))
+			);
+			if (action.command === "start") {
+				menu.addItem((item) =>
+					item.setTitle("Start in terminal").setIcon("terminal").onClick(() => this.startInTerminal())
+				);
+			}
+		}
+		if (this.state === "nodaemon") {
+			menu.addSeparator();
+			menu.addItem((item) =>
+				item.setTitle("Start daemon in terminal").setIcon("terminal").onClick(() => this.inTerminal(["daemon", "start"]))
 			);
 		}
 		menu.addSeparator();
@@ -254,11 +279,37 @@ export default class MutagenSyncPlugin extends Plugin {
 
 	private async runProject(command: "start" | "pause" | "resume") {
 		const notice = new Notice(`mutagen project ${command}…`, 0);
+		const hadLock = command === "start" && (await this.app.vault.adapter.exists(this.lockFile));
 		const res = await this.cli.projectCommand(command, this.settings.configFile);
 		this.logger.log("project", command, res.ok ? "ok" : "failed");
 		notice.hide();
-		if (!res.ok) new Notice(`mutagen project ${command} failed\n${res.stderr.trim()}`, 10_000);
+		if (!res.ok) {
+			// A failed start leaves the lock file behind, and mutagen then says the project is
+			// already running. Terminate only what this start created.
+			if (command === "start" && !hadLock && (await this.app.vault.adapter.exists(this.lockFile))) {
+				const term = await this.cli.projectCommand("terminate", this.settings.configFile);
+				this.logger.log("project terminate after failed start", term.ok ? "ok" : "failed");
+			}
+			const hint = daemonDown(res.stderr)
+				? "\n\nThe Mutagen daemon is not running, and the plugin does not start it. Use \"Start in terminal\" from the menu, or run `mutagen daemon register` once so it starts at login."
+				: command === "start" && needsPrompt(res.stderr)
+				? "\n\nSSH seems to ask for a password. Use \"Start in terminal\" from the menu or set up an SSH key."
+				: "";
+			new Notice(`mutagen project ${command} failed\n${res.stderr.trim()}${hint}`, hint ? 20_000 : 10_000);
+		}
 		await this.refresh();
+	}
+
+	// SSH can ask for a password there; the lock file event refreshes the dot once it starts.
+	private startInTerminal() {
+		this.inTerminal(["project", "start", "-f", this.settings.configFile]);
+	}
+
+	// The daemon started here belongs to the terminal, not to Obsidian.
+	private inTerminal(args: string[]) {
+		const adapter = this.app.vault.adapter as FileSystemAdapter;
+		runInTerminal(this.settings.mutagenPath, args, adapter.getBasePath(),
+			this.settings.terminalCommand, this.logger, (message) => new Notice(`Could not open a terminal\n${message}\n\nSet the terminal command in plugin settings.`, 15_000));
 	}
 
 	// Closing the vault window while the project is syncing: ask, pause silently, or do nothing.

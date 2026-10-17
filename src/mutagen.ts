@@ -26,7 +26,9 @@ export interface CliResult {
 }
 
 // Obsidian launched from a desktop shortcut does not see the shell PATH, so add common locations.
-function cliEnv(): NodeJS.ProcessEnv {
+// The plugin never starts the daemon itself: a daemon started from Obsidian outlives it and makes
+// the OS count Obsidian as running in the background. A terminal started by the user may start it.
+function cliEnv(autostart = false): NodeJS.ProcessEnv {
 	const extra = [
 		join(homedir(), ".local", "bin"),
 		join(homedir(), "go", "bin"),
@@ -34,7 +36,10 @@ function cliEnv(): NodeJS.ProcessEnv {
 		"/opt/homebrew/bin",
 	];
 	const path = [process.env.PATH ?? "", ...extra].filter(Boolean).join(delimiter);
-	return { ...process.env, PATH: path };
+	const env: NodeJS.ProcessEnv = { ...process.env, PATH: path };
+	if (autostart) delete env.MUTAGEN_DISABLE_AUTOSTART;
+	else env.MUTAGEN_DISABLE_AUTOSTART = "1";
+	return env;
 }
 
 export class MutagenCli {
@@ -42,7 +47,7 @@ export class MutagenCli {
 
 	run(args: string[], timeoutMs = 60_000): Promise<CliResult> {
 		return new Promise((resolve) => {
-			execFile(
+			const child = execFile(
 				this.binary(),
 				args,
 				{ cwd: this.cwd, env: cliEnv(), timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024 },
@@ -56,6 +61,9 @@ export class MutagenCli {
 					});
 				}
 			);
+			// Closed stdin makes mutagen fail at once when SSH asks for a password, instead of
+			// waiting for input on an open pipe until the timeout.
+			child.stdin?.end();
 		});
 	}
 
@@ -71,16 +79,17 @@ export class MutagenCli {
 		}
 	}
 
-	projectCommand(command: "list" | "start" | "pause" | "resume", configFile: string): Promise<CliResult> {
+	projectCommand(command: "list" | "start" | "pause" | "resume" | "terminate", configFile: string): Promise<CliResult> {
 		return this.run(["project", command, "-f", configFile]);
 	}
 
-	async sessions(projectId: string): Promise<SyncSession[] | null> {
+	// "nodaemon" when the daemon is not running; null when the CLI failed for another reason.
+	async sessions(projectId: string): Promise<SyncSession[] | "nodaemon" | null> {
 		const res = await this.run(
 			["sync", "list", "--label-selector", `${PROJECT_LABEL}=${projectId}`, "--template", JSON_TEMPLATE],
 			15_000
 		);
-		if (!res.ok) return null;
+		if (!res.ok) return daemonDown(res.stderr) ? "nodaemon" : null;
 		return parseSessions(res.stdout.trim());
 	}
 
@@ -127,4 +136,55 @@ function parseSessions(text: string): SyncSession[] | null {
 	} catch {
 		return null;
 	}
+}
+
+export function daemonDown(stderr: string): boolean {
+	return /unable to connect to daemon/i.test(stderr);
+}
+
+// Words in mutagen's error when SSH wanted a password or passphrase and there was no terminal to ask.
+export function needsPrompt(stderr: string): boolean {
+	return /unable to (invoke )?prompt|password|passphrase/i.test(stderr);
+}
+
+function shQuote(s: string): string {
+	return "'" + s.replace(/'/g, "'\\''") + "'";
+}
+
+// Runs a mutagen command in a visible system terminal, where SSH can ask for a password.
+// `custom` overrides the terminal: its `{command}` is replaced with a quoted shell command.
+export function runInTerminal(binary: string, args: string[], cwd: string, custom: string, logger: Logger, onError: (message: string) => void) {
+	let file: string;
+	let argv: string[];
+	if (process.platform === "win32") {
+		const line = [binary, ...args].map((a) => `"${a}"`).join(" ");
+		file = "cmd.exe";
+		argv = ["/c", "start", "Mutagen", "cmd.exe", "/k", line];
+	} else {
+		const line = `cd ${shQuote(cwd)} && ${[binary, ...args].map(shQuote).join(" ")}; echo; printf 'Press Enter to close'; read _`;
+		if (custom.trim()) {
+			file = "/bin/sh";
+			argv = ["-c", custom.split("{command}").join(shQuote(line))];
+		} else if (process.platform === "darwin") {
+			// Terminal starts the user's login shell, which has the full PATH.
+			const script = `exec /bin/sh -c ${shQuote(line)}`;
+			const quoted = '"' + script.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+			file = "osascript";
+			argv = ["-e", `tell application "Terminal" to do script ${quoted}`, "-e", 'tell application "Terminal" to activate'];
+		} else {
+			file = "x-terminal-emulator";
+			argv = ["-e", "sh", "-c", line];
+		}
+	}
+	logger.log("terminal", file, argv);
+	const child = spawn(file, argv, { cwd, env: cliEnv(true), detached: true, stdio: "ignore" });
+	child.on("error", (e) => {
+		logger.log("terminal error", e.message);
+		onError(`${file}: ${e.message}`);
+	});
+	// A custom command runs through sh, which reports a missing terminal only by exit code.
+	child.on("exit", (code) => {
+		if (code === 127) onError(`${custom.trim().split(/\s+/)[0]}: command not found`);
+	});
+	child.unref();
 }

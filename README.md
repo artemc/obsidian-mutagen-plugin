@@ -15,6 +15,10 @@ Click the dot: `mutagen project list` output, Start / Pause / Resume, Settings. 
 
 When you close the vault while it is syncing, the plugin can ask whether to pause the project, pause it silently, or do nothing (setting *When closing the vault while syncing*).
 
+**SSH with a password.** The plugin runs mutagen without a terminal, so it cannot ask for an SSH password: Start fails right away with a hint and cleans up after itself. Use *Start in terminal* from the menu (enter the password there; on Linux the terminal can be set in settings), or better, set up an SSH key (`ssh-copy-id user@host`, with ssh-agent or macOS Keychain for a passphrase) so Start and reconnects work without prompts.
+
+**The Mutagen daemon.** The plugin never starts the daemon itself: a daemon started from Obsidian outlives it, and the OS then shows Obsidian as running in the background. Run `mutagen daemon register` once so the daemon starts at login, or use *Start daemon in terminal* / *Start in terminal* from the menu.
+
 For troubleshooting, enable *Debug log* in settings (off by default): mutagen calls and state changes go to `debug.log` in the plugin folder and the developer console.
 
 ## Install via BRAT

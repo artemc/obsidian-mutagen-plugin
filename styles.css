@@ -16,6 +16,7 @@
 .mutagen-status[data-state="error"] .mutagen-status-dot { background-color: var(--color-red); }
 .mutagen-status[data-state="stopped"] .mutagen-status-dot,
 .mutagen-status[data-state="unavailable"] .mutagen-status-dot,
+.mutagen-status[data-state="nodaemon"] .mutagen-status-dot,
 .mutagen-status[data-state="noconfig"] .mutagen-status-dot { background-color: var(--text-faint); }
 
 .mutagen-project-list-modal {

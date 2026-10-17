@@ -63,7 +63,7 @@ async function main() {
 	check("right click when stopped: nothing", p.state, "stopped");
 
 	menu = await clickMenu(p);
-	check("menu when stopped", titles(menu), "Project not started | Details… | Start | Plugin settings…");
+	check("menu when stopped", titles(menu), "Project not started | Details… | Start | Start in terminal | Plugin settings…");
 	const start = menu.items.find((i) => i.title === "Start")!;
 	await start.click!();
 	check("after Start", await waitState(p, "running"), "running");

@@ -64,7 +64,11 @@ export class Menu {
 	showAtMouseEvent() { Menu.last = this; }
 }
 
-export class Notice { constructor(public message: string) {} hide() {} }
+export class Notice {
+	static all: string[] = [];
+	constructor(public message: string) { Notice.all.push(message); }
+	hide() {}
+}
 export class Modal {
 	static last: Modal | null = null;
 	titleEl = new FakeEl();
